@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "financial-advisor"
+version = "0.1.0"
+description = ""
+authors = ["aidoskanapyanov <aidos.kanapyanov@alumni.nu.edu.kz>"]
+readme = "README.md"
+packages = [{include = "financial_advisor"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+black = "^22.10.0"
+dash = "^2.6.2"
+ipdb = "^0.13.9"
+ipykernel = "^6.17.0"
+ipython = "^8.6.0"
+loguru = "^0.6.0"
+plotly = "^5.11.0"
+pandas = "^1.5.1"
+yfinance = "^0.1.84"
+pyportfolioopt = "^1.5.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
