@@ -5,12 +5,14 @@ import yfinance as yf
 import dash_bootstrap_components as dbc
 from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
 from pypfopt import EfficientFrontier
+from pypfopt.cla import CLA
 from pypfopt import risk_models
 from pypfopt import expected_returns
 from pypfopt.exceptions import OptimizationError
 from io import StringIO
 import sys
 from loguru import logger
+from stock_choices import stock_choices
 
 app = Dash(
     __name__,
@@ -19,25 +21,21 @@ app = Dash(
 
 
 period_choices = [
-    # "6mo",
-    # "1y",
     "2y",
     "5y",
     "10y",
-    # "ytd",
     "max",
 ]
 default_period_choice = "2y"
-
-stock_choices = ["TSLA", "GOOGL", "AAPL", "AMZN"]
-default_stock_choice = "TSLA"
+default_stock_choice = ["GE", "PFE", "TSLA"]
 
 app.layout = html.Div(
     children=[
         html.Div(
             children=[
                 html.H1(
-                    children="Financial Advisor", className="w-75 text-center my-2"
+                    children="Investment porfolio optimizer",
+                    className="w-75 text-center my-2",
                 ),
                 html.P("Choose period for optimization:", className="mb-0"),
                 dcc.RadioItems(
@@ -46,7 +44,17 @@ app.layout = html.Div(
                     id="period",
                     className="d-flex justify-content-evenly w-25 my-2",
                 ),
-                html.P("Set the investment amount:", className="mb-0"),
+                html.P("Select the stocks for optimization:", className="mb-0"),
+                html.Div(
+                    dcc.Dropdown(
+                        stock_choices,
+                        default_stock_choice,
+                        multi=True,
+                        id="stocks",
+                    ),
+                    className="w-25 my-2",
+                ),
+                html.P("Set the investment amount in USD:", className="mb-0"),
                 dcc.Input(
                     id="investment-amount",
                     type="number",
@@ -56,20 +64,15 @@ app.layout = html.Div(
                     style={"width": "10rem"},
                 ),
                 html.Button(
-                    'Calculate asset allocation', id='calculate-btn', n_clicks=0
+                    'Calculate asset allocation',
+                    id='calculate-btn',
+                    n_clicks=0,
+                    className="btn btn-primary",
                 ),
-                html.P("Select the stocks for optimization:", className="mb-0"),
-                html.Div(
-                    dcc.Dropdown(
-                        stock_choices,
-                        [default_stock_choice],
-                        multi=True,
-                        id="stocks",
-                    ),
-                    className="w-50 my-2",
-                ),
-                html.P(id="performance", className="mb-0"),
+                html.P(id="performance", className="mb-0 mt-2"),
                 html.P(id="allocation", className="mb-0"),
+                html.P(id="latest-prices", className="mb-0"),
+                html.P(id="leftover", className="mb-0"),
             ],
             className="d-flex flex-column align-items-center",
         ),
@@ -88,7 +91,7 @@ def calculate_allocation(df, weights, investment_amount):
         weights, latest_prices, total_portfolio_value=investment_amount
     )
     allocation, leftover = da.greedy_portfolio()
-    return allocation, leftover
+    return allocation, leftover, latest_prices
 
 
 def calculate_optimal_portfolio(df):
@@ -97,7 +100,7 @@ def calculate_optimal_portfolio(df):
     S = risk_models.sample_cov(df)
 
     # Optimize for maximal Sharpe ratio
-    ef = EfficientFrontier(mu, S)
+    ef = CLA(mu, S)
     raw_weights = ef.max_sharpe()
     cleaned_weights = ef.clean_weights()
     with Capturing() as performance:
@@ -122,6 +125,8 @@ class Capturing(list):
     Output("my-output", "figure"),
     Output("performance", "children"),
     Output("allocation", "children"),
+    Output("leftover", "children"),
+    Output("latest-prices", "children"),
     Input("period", "value"),
     Input("investment-amount", "value"),
     Input("stocks", "value"),
@@ -130,7 +135,7 @@ class Capturing(list):
 @logger.catch
 def update_output_div(period, investment_amount, selected_stocks, btn):
     if not selected_stocks:
-        selected_stocks = [default_stock_choice]
+        selected_stocks = default_stock_choice
 
     try:
         df = (
@@ -147,6 +152,8 @@ def update_output_div(period, investment_amount, selected_stocks, btn):
 
     performance = ["Unable to optimize."]
     allocation = ""
+    leftover = ""
+    latest_prices = ""
 
     if selected_stocks.__len__() > 1:
         try:
@@ -155,9 +162,17 @@ def update_output_div(period, investment_amount, selected_stocks, btn):
             )
             if performance.__len__() > 1:
                 if investment_amount and "calculate-btn" == ctx.triggered_id:
-                    allocation, leftover = calculate_allocation(
+                    allocation, leftover, latest_prices = calculate_allocation(
                         df.set_index("Date"), cleaned_weights, investment_amount
                     )
+                    _ = []
+                    for ticker, price in latest_prices.to_dict().items():
+                        if ticker in allocation:
+                            _ += [f"{ticker} costs ${round(price, 1)}"]
+                    latest_prices = "Latest stock prices: " + ", ".join(_)
+
+                    leftover = "Money leftover: ${:.1f}".format(leftover)
+
                     _ = []
                     for ticker, count in allocation.items():
                         _ += [f"{count} {ticker} stocks"]
@@ -166,7 +181,7 @@ def update_output_div(period, investment_amount, selected_stocks, btn):
                 df["Optimal portfolio"] = (
                     df.iloc[:, 1:].assign(**cleaned_weights).mul(df).sum(1)
                 )
-        except OptimizationError:
+        except (OptimizationError, ValueError) as e:
             logger.info("Oops")
 
     df.iloc[:, 1:] = ((df.iloc[:, 1:].pct_change(1) + 1).cumprod() - 1).fillna(0)
@@ -192,7 +207,7 @@ def update_output_div(period, investment_amount, selected_stocks, btn):
     fig.update_layout(hovermode="x unified")
     fig.update_xaxes(showline=True, linewidth=2, linecolor="black")
 
-    return fig, "\n".join(performance), allocation
+    return fig, "\n".join(performance), allocation, str(leftover), str(latest_prices)
 
 
 if __name__ == "__main__":
