@@ -2,8 +2,12 @@ from dash import Dash, html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
+import dash_bootstrap_components as dbc
 
-app = Dash(__name__)
+app = Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+)
 
 
 period_choices = [
@@ -21,17 +25,44 @@ default_stock_choice = "TSLA"
 
 app.layout = html.Div(
     children=[
-        html.H1(children="Financial Advisor"),
-        dcc.RadioItems(period_choices, period_choices[0], id="period"),
-        dcc.Input(id="investment-amount", type="number"),
-        dcc.Dropdown(
-            stock_choices,
-            [default_stock_choice],
-            multi=True,
-            id="stocks",
+        html.Div(
+            children=[
+                html.H1(
+                    children="Financial Advisor", className="w-75 text-center my-2"
+                ),
+                html.P("Choose period for optimization:", className="mb-0"),
+                dcc.RadioItems(
+                    period_choices,
+                    period_choices[0],
+                    id="period",
+                    className="d-flex justify-content-evenly w-25 my-2",
+                ),
+                html.P("Set the investment amount:", className="mb-0"),
+                dcc.Input(
+                    id="investment-amount",
+                    type="number",
+                    placeholder="100000",
+                    className="my-2",
+                    style={"width": "10rem"},
+                ),
+                html.P("Select the stocks for optimization:", className="mb-0"),
+                html.Div(
+                    dcc.Dropdown(
+                        stock_choices,
+                        [default_stock_choice],
+                        multi=True,
+                        id="stocks",
+                    ),
+                    className="w-50 my-2",
+                ),
+            ],
+            className="d-flex flex-column align-items-center",
         ),
-        dcc.Graph(id="my-output"),
-    ]
+        html.Div(
+            dcc.Graph(id="my-output", className="w-75"),
+            className="d-flex justify-content-center w-100",
+        ),
+    ],
 )
 
 
