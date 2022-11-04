@@ -21,10 +21,10 @@ app = Dash(
 
 
 period_choices = [
-    "2y",
-    "5y",
-    "10y",
-    "max",
+    {"label": "2 years", "value": "2y"},
+    {"label": "5 years", "value": "5y"},
+    {"label": "10 years", "value": "10y"},
+    {"label": "max", "value": "max"},
 ]
 default_period_choice = "2y"
 default_stock_choice = ["GE", "PFE", "TSLA"]
@@ -37,14 +37,17 @@ app.layout = html.Div(
                     children="Investment porfolio optimizer",
                     className="w-75 text-center my-2",
                 ),
-                html.P("Choose period for optimization:", className="mb-0"),
-                dcc.RadioItems(
-                    period_choices,
-                    default_period_choice,
-                    id="period",
-                    className="d-flex justify-content-evenly w-25 my-2",
+                html.P("Choose period for optimization:", className="mb-2 mx-2"),
+                html.Div(
+                    dcc.Dropdown(
+                        period_choices,
+                        default_period_choice,
+                        id="period",
+                        clearable=False,
+                    ),
+                    className="w-25 my-2",
                 ),
-                html.P("Select the stocks for optimization:", className="mb-0"),
+                html.P("Select the stocks for optimization:", className="mb-2 mx-2"),
                 html.Div(
                     dcc.Dropdown(
                         stock_choices,
@@ -52,9 +55,9 @@ app.layout = html.Div(
                         multi=True,
                         id="stocks",
                     ),
-                    className="w-25 my-2",
+                    className="my-2",
                 ),
-                html.P("Set the investment amount in USD:", className="mb-0"),
+                html.P("Set the investment amount in USD:", className="mb-2 mx-2"),
                 dcc.Input(
                     id="investment-amount",
                     type="number",
@@ -69,15 +72,20 @@ app.layout = html.Div(
                     n_clicks=0,
                     className="btn btn-primary",
                 ),
-                html.P(id="performance", className="mb-0 mt-2"),
-                html.P(id="allocation", className="mb-0"),
-                html.P(id="latest-prices", className="mb-0"),
-                html.P(id="leftover", className="mb-0"),
+                html.Div(
+                    children=[
+                        html.P(id="performance", className="my-2 mx-2"),
+                        html.P(id="allocation", className="my-2 mx-2"),
+                        html.P(id="latest-prices", className="my-2 mx-2"),
+                        html.P(id="leftover", className="my-2 mx-2"),
+                    ],
+                    className="d-flex flex-column align-items-center w-100",
+                ),
             ],
-            className="d-flex flex-column align-items-center",
+            className="d-flex flex-column align-items-center w-100",
         ),
         html.Div(
-            dcc.Graph(id="my-output", className="w-75"),
+            dcc.Graph(id="my-output", className="container-sm"),
             className="d-flex justify-content-center w-100",
         ),
     ],
@@ -205,9 +213,14 @@ def update_output_div(period, investment_amount, selected_stocks, btn):
     fig.update_traces(hovertemplate="%{y:.1%}")
     fig.update_layout(yaxis_tickformat=".0%")
     fig.update_layout(hovermode="x unified")
-    fig.update_xaxes(showline=True, linewidth=2, linecolor="black")
+    fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title_standoff=0)
+    fig.update_yaxes(title_standoff=0)
 
-    return fig, "\n".join(performance), allocation, str(leftover), str(latest_prices)
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    return fig, " ".join(performance), allocation, str(leftover), str(latest_prices)
 
 
 if __name__ == "__main__":
